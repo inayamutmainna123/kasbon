@@ -52,13 +52,33 @@ class KaryawanResource extends Resource
                             ->required(),
                     ]),
 
+
                     TextInput::make('gaji_pokok')
                         ->label('Gaji Pokok')
-                        ->numeric()
-                        ->minValue(0)
-                        ->prefix('Rp')
+                        ->prefix('Rp ')
                         ->required()
-                        ->helperText('Masukkan nominal gaji pokok (angka saja, tanpa titik/koma)'),
+                        ->live(onBlur: true) // format saat selesai mengetik (lebih stabil)
+                        // tampilkan nilai dari DB sebagai "1.000.000"
+                        ->afterStateHydrated(function (TextInput $component, $state) {
+                            if ($state === null || $state === '') return;
+                            $component->state(number_format((int) $state, 0, ',', '.'));
+                        })
+                        // saat user mengubah, bersihkan non-digit lalu format lagi
+                        ->afterStateUpdated(function (TextInput $component, $state) {
+                            if ($state === null || $state === '') {
+                                $component->state(null);
+                                return;
+                            }
+                            $digits = preg_replace('/\D/', '', (string) $state);  // sisakan angka saja
+                            $component->state($digits === '' ? null : number_format((int) $digits, 0, ',', '.'));
+                        })
+                        // sebelum disimpan ke DB, hilangkan titik (jadi integer murni)
+                        ->dehydrateStateUsing(
+                            fn($state) =>
+                            $state === null ? null : (int) str_replace('.', '', $state)
+                        )
+                        ->helperText('Ketik angka saja; format ribuan otomatis. Yang disimpan tetap angka murni (tanpa titik).')
+
                 ])
                 ->collapsible(),
         ]);
@@ -114,9 +134,13 @@ class KaryawanResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()->color('secondary'),
-                Tables\Actions\EditAction::make()->color('primary'),
-                Tables\Actions\DeleteAction::make()->color('danger'),
+
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make()->color('secondary'),
+                    Tables\Actions\EditAction::make()->color('primary'),
+                    Tables\Actions\DeleteAction::make()->color('danger'),
+                ])
+
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\KasbonResource\Pages;
 use App\Models\Kasbon;
+use Doctrine\DBAL\Schema\Table;
 use Filament\Forms;
 use Filament\Tables;
 use Filament\Resources\Resource;
@@ -38,19 +39,42 @@ class KasbonResource extends Resource
                     ->relationship('karyawan', 'id')
                     ->getOptionLabelFromRecordUsing(fn($record) => $record->user->name ?? '-')
                     ->searchable()
+                    ->preload()
                     ->required()
                     ->columnSpanFull(),
 
                 TextInput::make('jumlah')
                     ->label('Jumlah Kasbon')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->minValue(0)
-                    ->required(),
+                    ->prefix('Rp ')
+                    ->required()
+                    ->live(onBlur: true) // format saat selesai mengetik
+                    // tampilkan dari DB (misalnya 1000000 -> "1.000.000")
+                    ->afterStateHydrated(function (TextInput $component, $state) {
+                        if ($state === null || $state === '') return;
+                        $component->state(number_format((int) $state, 0, ',', '.'));
+                    })
+                    // saat user input, ubah ke angka saja lalu format ribuan
+                    ->afterStateUpdated(function (TextInput $component, $state) {
+                        if ($state === null || $state === '') {
+                            $component->state(null);
+                            return;
+                        }
+                        $digits = preg_replace('/\D/', '', (string) $state); // buang selain angka
+                        $component->state($digits === '' ? null : number_format((int) $digits, 0, ',', '.'));
+                    })
+                    // sebelum simpan ke DB, hapus titik biar tersimpan integer murni
+                    ->dehydrateStateUsing(
+                        fn($state) =>
+                        $state === null ? null : (int) str_replace('.', '', $state)
+                    )
+                    ->helperText('Masukkan jumlah kasbon. Format ribuan otomatis, data tersimpan sebagai angka murni.')
+                    ->columnSpanFull(),
+
 
                 DatePicker::make('tanggal_pengajuan')
                     ->label('Tanggal Pengajuan')
                     ->default(now())
+                    ->native()
                     ->required(),
 
                 DatePicker::make('tanggal_approval')
@@ -143,42 +167,50 @@ class KasbonResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()->icon('heroicon-o-eye')->color('secondary'),
-                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil')->color('primary'),
-
-                Action::make('approve')
-                    ->label('Approve')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status === 'pending')
-                    ->action(fn($record) => $record->update([
-                        'status' => 'approved',
-                        'tanggal_approval' => now(),
-                    ])),
-
-                Action::make('reject')
-                    ->label('Reject')
-                    ->icon('heroicon-o-x-mark')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status === 'pending')
-                    ->action(fn($record) => $record->update([
-                        'status' => 'rejected',
-                        'tanggal_approval' => now(),
-                    ])),
 
                 Action::make('markLunas')
-                    ->label('Tandai Lunas')
+                    ->label('')
+
                     ->icon('heroicon-o-document-check')
                     ->color('primary')
                     ->visible(fn($record) => $record->status === 'approved')
                     ->requiresConfirmation()
+                    ->tooltip('klik untuk melunaskan')
                     ->action(fn($record) => $record->update([
                         'status' => 'lunas',
                     ])),
+                Tables\Actions\ActionGroup::make([
 
-                Tables\Actions\DeleteAction::make()->icon('heroicon-o-trash')->color('danger'),
+
+                    Tables\Actions\ViewAction::make()->icon('heroicon-o-eye')->color('secondary'),
+                    Tables\Actions\EditAction::make()->icon('heroicon-o-pencil')->color('primary'),
+
+                    Action::make('approve')
+                        ->label('Approve')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->visible(fn($record) => $record->status === 'pending')
+                        ->action(fn($record) => $record->update([
+                            'status' => 'approved',
+                            'tanggal_approval' => now(),
+                        ])),
+
+                    Action::make('reject')
+                        ->label('Reject')
+                        ->icon('heroicon-o-x-mark')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->visible(fn($record) => $record->status === 'pending')
+                        ->action(fn($record) => $record->update([
+                            'status' => 'rejected',
+                            'tanggal_approval' => now(),
+                        ])),
+
+
+
+                    Tables\Actions\DeleteAction::make()->icon('heroicon-o-trash')->color('danger'),
+                ]),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),

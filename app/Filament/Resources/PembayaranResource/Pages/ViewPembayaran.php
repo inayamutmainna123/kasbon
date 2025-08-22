@@ -5,6 +5,9 @@ namespace App\Filament\Resources\PembayaranResource\Pages;
 use App\Filament\Resources\PembayaranResource;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\Grid;
 
 class ViewPembayaran extends ViewRecord
 {
@@ -19,47 +22,61 @@ class ViewPembayaran extends ViewRecord
     {
         return $infolist
             ->schema([
-                Infolists\Components\Section::make('Detail Pembayaran')
+                Section::make('Detail Pembayaran')
                     ->schema([
-                        Infolists\Components\TextEntry::make('kasbon.karyawan.user.name')
-                            ->label('Nama Karyawan'),
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('kasbon.karyawan.user.name')
+                                    ->label('Nama Karyawan')
+                                    ->icon('heroicon-o-user')
+                                    ->badge(),
 
-                        Infolists\Components\TextEntry::make('kasbon.jumlah')
-                            ->label('Total Kasbon')
-                            ->money('idr'),
+                                TextEntry::make('kasbon.jumlah')
+                                    ->label('Total Kasbon')
+                                    ->money('idr', true)
+                                    ->color('primary')
+                                    ->badge(),
 
-                        Infolists\Components\TextEntry::make('jumlah_bayar')
-                            ->label('Jumlah Bayar')
-                            ->money('idr'),
+                                TextEntry::make('jumlah_bayar')
+                                    ->label('Jumlah Bayar')
+                                    ->money('idr', true)
+                                    ->color('success')
+                                    ->badge(),
 
-                        Infolists\Components\TextEntry::make('sisa')
-                            ->label('Sisa Kasbon')
-                            ->state(
-                                fn($record) =>
-                                max(
-                                    0,
-                                    intval($record->kasbon->jumlah ?? 0) - intval($record->jumlah_bayar ?? 0)
-                                )
-                            )
-                            ->money('idr'),
+                                TextEntry::make('sisa')
+                                    ->label('Sisa Kasbon')
+                                    ->state(
+                                        fn($record) =>
+                                        max(
+                                            0,
+                                            intval($record->kasbon->jumlah ?? 0) - intval($record->jumlah_bayar ?? 0)
+                                        )
+                                    )
+                                    ->money('idr', true)
+                                    ->color('danger')
+                                    ->badge(),
 
-                        Infolists\Components\TextEntry::make('metode')
-                            ->label('Metode Pembayaran')
-                            ->badge()
-                            ->colors([
-                                'primary' => 'potong_gaji',
-                                'success' => 'manual',
-                            ])
-                            ->formatStateUsing(fn($state) => match ($state) {
-                                'potong_gaji' => 'Potong Gaji',
-                                'manual'      => 'Manual',
-                                default       => ucfirst($state),
-                            }),
+                                TextEntry::make('metode')
+                                    ->label('Metode Pembayaran')
+                                    ->badge()
+                                    ->colors([
+                                        'primary' => 'potong_gaji',
+                                        'success' => 'manual',
+                                    ])
+                                    ->formatStateUsing(fn($state) => match ($state) {
+                                        'potong_gaji' => 'Potong Gaji',
+                                        'manual'      => 'Manual',
+                                        default       => ucfirst($state),
+                                    }),
 
-                        Infolists\Components\TextEntry::make('tanggal_bayar')
-                            ->label('Tanggal Bayar')
-                            ->date('d M Y'),
+                                TextEntry::make('tanggal_bayar')
+                                    ->label('Tanggal Bayar')
+                                    ->date('d M Y')
+                                    ->icon('heroicon-o-calendar'),
+                            ]),
                     ])
+                    ->collapsible()
+                    ->icon('heroicon-o-credit-card')
                     ->columns(2),
             ]);
     }

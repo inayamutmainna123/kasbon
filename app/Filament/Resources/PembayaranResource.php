@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PembayaranResource\Pages;
 use App\Models\Pembayaran;
+use Doctrine\DBAL\Query\From;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,7 +13,10 @@ use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Infolists;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Infolist;
+use Filament\Forms\Components\Select;
+
 
 class PembayaranResource extends Resource
 {
@@ -30,18 +34,79 @@ class PembayaranResource extends Resource
     {
         return $form
             ->schema([
+
+                Forms\Components\Select::make('karyawan_id')
+                    ->label('Karyawan')
+                    ->relationship('karyawan', 'id')
+                    ->getOptionLabelFromRecordUsing(fn($record) => $record->user?->name ?? '-')
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->reactive()
+                    ->helperText('Pilih karyawan yang ingin dibayarkan')
+                    ->columnSpanFull()
+                    ->afterStateUpdated(function (callable $set) {
+                        // reset kasbon saat karyawan berubah
+                        $set('kasbon_id', null);
+                    }),
+
                 Forms\Components\Select::make('kasbon_id')
                     ->label('Kasbon')
-                    ->relationship('kasbon', 'jumlah')
-                    ->searchable()
-                    ->required()
-                    ->helperText('Pilih kasbon yang ingin dibayarkan'),
+                    ->options(function (callable $get, callable $set) {
+                        $karyawanId = $get('karyawan_id');
+                        if (!$karyawanId) return [];
 
-                Forms\Components\TextInput::make('jumlah_bayar')
+                        $kasbons = \App\Models\Kasbon::where('karyawan_id', $karyawanId)
+                            ->where(function ($query) {
+                                $query->whereRaw('jumlah > (SELECT COALESCE(SUM(jumlah_bayar),0) FROM pembayaran WHERE pembayaran.kasbon_id = kasbon.id)');
+                            })
+                            ->pluck('jumlah', 'id');
+
+                        // auto pilih kasbon pertama jika ada
+                        if ($kasbons->isNotEmpty()) {
+                            $set('kasbon_id', $kasbons->keys()->first());
+                        }
+
+                        return $kasbons->map(
+                            fn($jumlah) => 'Rp ' . number_format((int) $jumlah, 0, ',', '.')
+                        )->toArray();
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->getOptionLabelFromRecordUsing(fn($record) => 'Rp ' . number_format((int) $record, 0, ',', '.'))
+                    ->required()
+                    ->reactive()
+                    ->helperText('Kasbon otomatis difilter sesuai karyawan yang dipilih dan belum lunas')
+                    ->columnSpanFull(),
+
+
+                TextInput::make('jumlah_bayar')
                     ->label('Jumlah Bayar')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->required(),
+                    ->prefix('Rp ')
+                    ->required()
+                    ->live(onBlur: true) // format saat selesai ketik
+                    // saat edit (ambil dari DB), ubah angka ke format ribuan
+                    ->afterStateHydrated(function (TextInput $component, $state) {
+                        if ($state === null || $state === '') return;
+                        $component->state(number_format((int) $state, 0, ',', '.'));
+                    })
+                    // saat user ketik, format angka jadi ribuan
+                    ->afterStateUpdated(function (TextInput $component, $state) {
+                        if ($state === null || $state === '') {
+                            $component->state(null);
+                            return;
+                        }
+                        $digits = preg_replace('/\D/', '', (string) $state); // ambil hanya angka
+                        $component->state($digits === '' ? null : number_format((int) $digits, 0, ',', '.'));
+                    })
+                    // sebelum simpan ke DB, hilangkan titik biar integer murni
+                    ->dehydrateStateUsing(
+                        fn($state) =>
+                        $state === null ? null : (int) str_replace('.', '', $state)
+                    )
+                    ->helperText('Masukkan jumlah bayar. Otomatis diformat ribuan, tersimpan sebagai angka murni.')
+                    ->columnSpanFull(),
+
 
                 Forms\Components\Select::make('metode')
                     ->label('Metode Pembayaran')
@@ -122,29 +187,35 @@ class PembayaranResource extends Resource
                     }),
             ])
             ->actions([
-
-                Tables\Actions\ViewAction::make()
-                    ->label('Detail')
-                    ->icon('heroicon-o-eye')
-                    ->color('secondary')
-                    ->url(fn($record) => static::getUrl('view', ['record' => $record])),
+                Tables\Actions\ActionGroup::make([
 
 
-                Tables\Actions\EditAction::make()
-                    ->label('Edit')
-                    ->icon('heroicon-o-pencil')
-                    ->color('primary'),
 
-                Tables\Actions\DeleteAction::make()
-                    ->label('Hapus')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger'),
+                    Tables\Actions\ViewAction::make()
+                        ->label('Detail')
+                        ->icon('heroicon-o-eye')
+                        ->color('secondary')
+                        ->url(fn($record) => static::getUrl('view', ['record' => $record])),
+
+
+                    Tables\Actions\EditAction::make()
+                        ->label('Edit')
+                        ->icon('heroicon-o-pencil')
+                        ->color('primary'),
+
+                    Tables\Actions\DeleteAction::make()
+                        ->label('Hapus')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger'),
+
+                ]),
 
 
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make()
                     ->label('Hapus Terpilih'),
+
             ]);
     }
 
