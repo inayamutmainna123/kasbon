@@ -46,7 +46,7 @@ class PembayaranResource extends Resource
                     ->helperText('Pilih karyawan yang ingin dibayarkan')
                     ->columnSpanFull()
                     ->afterStateUpdated(function (callable $set) {
-                        // reset kasbon saat karyawan berubah
+
                         $set('kasbon_id', null);
                     }),
 
@@ -62,7 +62,7 @@ class PembayaranResource extends Resource
                             })
                             ->pluck('jumlah', 'id');
 
-                        // auto pilih kasbon pertama jika ada
+
                         if ($kasbons->isNotEmpty()) {
                             $set('kasbon_id', $kasbons->keys()->first());
                         }
@@ -84,13 +84,12 @@ class PembayaranResource extends Resource
                     ->label('Jumlah Bayar')
                     ->prefix('Rp ')
                     ->required()
-                    ->live(onBlur: true) // format saat selesai ketik
-                    // saat edit (ambil dari DB), ubah angka ke format ribuan
+                    ->live(onBlur: true)
                     ->afterStateHydrated(function (TextInput $component, $state) {
                         if ($state === null || $state === '') return;
                         $component->state(number_format((int) $state, 0, ',', '.'));
                     })
-                    // saat user ketik, format angka jadi ribuan
+
                     ->afterStateUpdated(function (TextInput $component, $state) {
                         if ($state === null || $state === '') {
                             $component->state(null);
@@ -99,7 +98,7 @@ class PembayaranResource extends Resource
                         $digits = preg_replace('/\D/', '', (string) $state); // ambil hanya angka
                         $component->state($digits === '' ? null : number_format((int) $digits, 0, ',', '.'));
                     })
-                    // sebelum simpan ke DB, hilangkan titik biar integer murni
+
                     ->dehydrateStateUsing(
                         fn($state) =>
                         $state === null ? null : (int) str_replace('.', '', $state)

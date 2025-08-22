@@ -23,7 +23,6 @@ class Karyawan extends Model
         return $this->belongsTo(User::class);
     }
 
-    // Ganti method sebelumnya dari singular ke plural
 
     public function kasbons()
     {

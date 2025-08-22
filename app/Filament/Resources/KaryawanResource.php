@@ -57,13 +57,12 @@ class KaryawanResource extends Resource
                         ->label('Gaji Pokok')
                         ->prefix('Rp ')
                         ->required()
-                        ->live(onBlur: true) // format saat selesai mengetik (lebih stabil)
-                        // tampilkan nilai dari DB sebagai "1.000.000"
+                        ->live(onBlur: true)
                         ->afterStateHydrated(function (TextInput $component, $state) {
                             if ($state === null || $state === '') return;
                             $component->state(number_format((int) $state, 0, ',', '.'));
                         })
-                        // saat user mengubah, bersihkan non-digit lalu format lagi
+
                         ->afterStateUpdated(function (TextInput $component, $state) {
                             if ($state === null || $state === '') {
                                 $component->state(null);
@@ -72,7 +71,7 @@ class KaryawanResource extends Resource
                             $digits = preg_replace('/\D/', '', (string) $state);  // sisakan angka saja
                             $component->state($digits === '' ? null : number_format((int) $digits, 0, ',', '.'));
                         })
-                        // sebelum disimpan ke DB, hilangkan titik (jadi integer murni)
+
                         ->dehydrateStateUsing(
                             fn($state) =>
                             $state === null ? null : (int) str_replace('.', '', $state)

@@ -47,13 +47,12 @@ class KasbonResource extends Resource
                     ->label('Jumlah Kasbon')
                     ->prefix('Rp ')
                     ->required()
-                    ->live(onBlur: true) // format saat selesai mengetik
-                    // tampilkan dari DB (misalnya 1000000 -> "1.000.000")
+                    ->live(onBlur: true)
                     ->afterStateHydrated(function (TextInput $component, $state) {
                         if ($state === null || $state === '') return;
                         $component->state(number_format((int) $state, 0, ',', '.'));
                     })
-                    // saat user input, ubah ke angka saja lalu format ribuan
+
                     ->afterStateUpdated(function (TextInput $component, $state) {
                         if ($state === null || $state === '') {
                             $component->state(null);
@@ -62,7 +61,7 @@ class KasbonResource extends Resource
                         $digits = preg_replace('/\D/', '', (string) $state); // buang selain angka
                         $component->state($digits === '' ? null : number_format((int) $digits, 0, ',', '.'));
                     })
-                    // sebelum simpan ke DB, hapus titik biar tersimpan integer murni
+
                     ->dehydrateStateUsing(
                         fn($state) =>
                         $state === null ? null : (int) str_replace('.', '', $state)
