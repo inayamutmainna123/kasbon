@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\Register;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -28,6 +30,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->authGuard('web')
             ->login()
             ->brandName('APLIKASI PENGAJUAN KASBON')
             ->font('poppins')
@@ -44,34 +47,12 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->registration(Register::class)
             ->colors([
-                'primary' => Color::Blue,
-                ' secondary' => Color::Gray,
+                'primary' => Color::hex('#1D4ED8'), // biru indigo
+                'secondary' => Color::hex('#64748B'), // abu-abu slate
                 'danger' => Color::Red,
                 'warning' => Color::Orange,
                 'success' => Color::Green,
                 'info' => Color::Blue,
-                'dark' => Color::Gray,
-                'light' => Color::Gray,
-                'muted' => Color::Gray,
-                'background' => Color::Gray,
-                'foreground' => Color::Gray,
-                'border' => Color::Gray,
-                'action' => Color::Gray,
-                'interactive' => Color::Gray,
-                'subtle' => Color::Gray,
-                'overlay' => Color::Gray,
-                'highlight' => Color::Gray,
-                'shadow' => Color::Gray,
-                'accent' => Color::Gray,
-                'inverse' => Color::Gray,
-                'inverse-foreground' => Color::Gray,
-                'inverse-background' => Color::Gray,
-                'inverse-border' => Color::Gray,
-                'inverse-action' => Color::Gray,
-                'inverse-interactive' => Color::Gray,
-                'inverse-subtle' => Color::Gray,
-                'inverse-overlay' => Color::Gray,
-                'inverse-highlight' => Color::Gray,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -84,6 +65,7 @@ class AdminPanelProvider extends PanelProvider
                 // Widgets\FilamentInfoWidget::class,
             ])
             ->plugins([
+                FilamentShieldPlugin::make(),
                 FilamentApexChartsPlugin::make(),
             ])
             ->middleware([
@@ -97,6 +79,11 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+            ->darkMode(true)
+
+            //untuk panah dekat nama brand
+            ->sidebarCollapsibleOnDesktop()
+
             ->authMiddleware([
                 Authenticate::class,
             ]);

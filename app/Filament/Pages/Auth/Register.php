@@ -33,7 +33,7 @@ class Register extends BaseRegister
                 'admin' => 'Admin',
                 'karyawan' => 'Karyawan',
             ])
-            ->default('admin')
+            ->default('karyawan')
             ->required();
     }
 }

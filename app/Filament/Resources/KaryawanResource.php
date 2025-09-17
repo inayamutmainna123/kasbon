@@ -3,7 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\KaryawanResource\Pages;
-use App\Filament\Resources\KaryawanResource\RelationManagers\KasbonsRelationManager;
+
 use App\Models\Karyawan;
 use Filament\Forms;
 use Filament\Forms\Components\Card;
@@ -86,6 +86,12 @@ class KaryawanResource extends Resource
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
+
+            TextColumn::make('index')
+                ->label('No')
+                ->alignCenter()
+                ->rowIndex(),
+
             TextColumn::make('user.name')
                 ->label('Nama Lengkap')
                 ->searchable()
@@ -135,12 +141,21 @@ class KaryawanResource extends Resource
             ->actions([
 
                 Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make()->color('secondary'),
+                    Tables\Actions\ViewAction::make()->color('success'),
                     Tables\Actions\EditAction::make()->color('primary'),
                     Tables\Actions\DeleteAction::make()->color('danger'),
                 ])
 
             ])
+
+
+
+
+
+
+
+            ->defaultSort('user.name', 'asc')
+
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ])

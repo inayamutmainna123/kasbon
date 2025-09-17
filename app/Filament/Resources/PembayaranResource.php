@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PembayaranResource\Pages;
 use App\Models\Pembayaran;
-use Doctrine\DBAL\Query\From;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,7 +14,8 @@ use Filament\Tables\Filters\Filter;
 use Filament\Infolists;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Infolist;
-use Filament\Forms\Components\Select;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
+
 
 
 class PembayaranResource extends Resource
@@ -24,7 +24,7 @@ class PembayaranResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationGroup = 'Kasbon';
-    protected static ?string $slug = 'pembayaran';
+    protected static ?string $slug = 'pembayaran_kasbon';
     protected static ?string $navigationLabel = 'Pembayaran Kasbon';
     protected static ?string $pluralModelLabel = 'Pembayaran Kasbon';
     protected static ?string $modelLabel = 'Pembayaran';
@@ -129,6 +129,12 @@ class PembayaranResource extends Resource
         return $table
             ->columns([
 
+
+                Tables\Columns\TextColumn::make('index')
+                    ->label('No')
+                    ->alignCenter()
+                    ->rowIndex(),
+
                 Tables\Columns\TextColumn::make('kasbon.karyawan.user.name')
                     ->label('Karyawan')
                     ->searchable()
@@ -189,7 +195,6 @@ class PembayaranResource extends Resource
                 Tables\Actions\ActionGroup::make([
 
 
-
                     Tables\Actions\ViewAction::make()
                         ->label('Detail')
                         ->icon('heroicon-o-eye')
@@ -211,6 +216,10 @@ class PembayaranResource extends Resource
 
 
             ])
+
+
+            ->headerActions([])
+
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make()
                     ->label('Hapus Terpilih'),
@@ -240,6 +249,8 @@ class PembayaranResource extends Resource
     {
         return [];
     }
+
+
 
     // === HALAMAN ===
     public static function getPages(): array

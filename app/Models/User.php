@@ -6,11 +6,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
+
+    protected $guard_name = 'web';
+
 
     /**
      * The attributes that are mass assignable.
@@ -49,7 +54,23 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::creating(function (User $user) {
-            $user->role = 'admin';
+            $user->role = 'karyawan';
         });
+    }
+
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isKaryawan(): bool
+    {
+        return $this->role === 'karyawan';
+    }
+
+    public function karyawan()
+    {
+        return $this->hasOne(Karyawan::class);
     }
 }

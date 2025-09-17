@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\KasbonResource\Pages;
 use App\Models\Kasbon;
-use Doctrine\DBAL\Schema\Table;
 use Filament\Forms;
 use Filament\Tables;
 use Filament\Resources\Resource;
@@ -17,9 +16,14 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Notifications\Notification;
+
+use App\Notifications\KasbonStatusNotification;
+
+
+
 
 class KasbonResource extends Resource
 {
@@ -34,15 +38,24 @@ class KasbonResource extends Resource
     {
         return $form->schema([
             Card::make()->columns(2)->schema([
-                Select::make('karyawan_id')
+                Forms\Components\Select::make('karyawan_id')
                     ->label('Karyawan')
-                    ->relationship('karyawan', 'id')
-                    ->getOptionLabelFromRecordUsing(fn($record) => $record->user->name ?? '-')
-                    ->searchable()
+                    ->relationship(
+                        name: 'karyawan',
+                        titleAttribute: 'id', // tetap pakai id, labelnya kita custom
+                        modifyQueryUsing: function ($query) {
+                            $query->join('users', 'users.id', '=', 'karyawan.user_id')
+                                ->select('karyawan.*', 'users.name as user_name')
+                                ->orderBy('users.name');
+                        }
+                    )
+                    ->getOptionLabelFromRecordUsing(fn($record) => $record->user?->name ?? '-')
+                    ->searchable(['users.name']) // sekarang nyambung ke join
                     ->preload()
                     ->required()
-                    ->columnSpanFull(),
-
+                    ->helperText('Pilih karyawan berdasarkan nama user')
+                    ->columnSpanFull()
+                    ->reactive(),
                 TextInput::make('jumlah')
                     ->label('Jumlah Kasbon')
                     ->prefix('Rp ')
@@ -88,8 +101,15 @@ class KasbonResource extends Resource
                         'lunas'    => 'Lunas',
                     ])
                     ->default('pending')
-                    ->required(),
-
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        if ($state === 'approved') {
+                            $set('tanggal_approval', now()); // auto set tanggal saat di-approve
+                        } elseif ($state !== 'approved') {
+                            $set('tanggal_approval', null); // reset kalau bukan approved
+                        }
+                    }),
                 Textarea::make('alasan')
                     ->label('Alasan Kasbon')
                     ->rows(3)
@@ -104,7 +124,10 @@ class KasbonResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-
+                Tables\Columns\TextColumn::make('index')
+                    ->label('No')
+                    ->alignCenter()
+                    ->rowIndex(),
 
                 TextColumn::make('karyawan.user.name')
                     ->label('Nama Karyawan')
@@ -190,10 +213,25 @@ class KasbonResource extends Resource
                         ->color('success')
                         ->requiresConfirmation()
                         ->visible(fn($record) => $record->status === 'pending')
-                        ->action(fn($record) => $record->update([
-                            'status' => 'approved',
-                            'tanggal_approval' => now(),
-                        ])),
+                        ->action(function ($record) {
+                            $record->update([
+                                'status'           => 'approved',
+                                'tanggal_approval' => now(),
+                            ]);
+
+                            // notifikasi pop-up untuk admin yang klik tombol
+                            Notification::make()
+                                ->title('Kasbon Disetujui')
+                                ->body('Kasbon untuk ' . $record->karyawan->user->name . ' berhasil disetujui.')
+                                ->success()
+                                ->send();
+
+                            // kalau mau juga kirim notifikasi ke karyawan di database
+                            $record->karyawan->user->notify(
+                                new \App\Notifications\KasbonStatusNotification($record, 'disetujui')
+                            );
+                        }),
+
 
                     Action::make('reject')
                         ->label('Reject')
@@ -201,16 +239,36 @@ class KasbonResource extends Resource
                         ->color('danger')
                         ->requiresConfirmation()
                         ->visible(fn($record) => $record->status === 'pending')
-                        ->action(fn($record) => $record->update([
-                            'status' => 'rejected',
-                            'tanggal_approval' => now(),
-                        ])),
+                        ->action(function ($record) {
+                            $record->update([
+                                'status'           => 'rejected',
+                                'tanggal_approval' => now(),
+                            ]);
+
+                            // kirim notifikasi ke karyawan
+                            $record->karyawan->user->notify(
+                                new KasbonStatusNotification($record, 'ditolak')
+                            );
+                        }),
+
 
 
 
                     Tables\Actions\DeleteAction::make()->icon('heroicon-o-trash')->color('danger'),
                 ]),
             ])
+
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(fn() => \Maatwebsite\Excel\Facades\Excel::download(
+                        new \App\Exports\KasbonExport,
+                        'data-kasbon.xlsx'
+                    )),
+                Tables\Actions\CreateAction::make()->label('Ajukan Kasbon')->icon('heroicon-o-plus'),
+            ])
+
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ]);

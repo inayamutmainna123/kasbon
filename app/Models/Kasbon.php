@@ -25,6 +25,10 @@ class Kasbon extends Model
     {
         return $this->belongsTo(Karyawan::class, 'karyawan_id', 'id');
     }
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'karyawan_id', 'id');
+    }
 
     public function pembayaran()
     {
